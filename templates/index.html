@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>造价通 - 材料价格查询系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+
+        /* 顶部导航 */
+        .header {
+            background: linear-gradient(135deg, #1a3a5c 0%, #2d6aa0 100%);
+            color: white;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .header .logo {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .header .logo span { color: #ffd54f; }
+        .header .info { font-size: 13px; opacity: 0.85; }
+
+        /* 主体 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 20px;
+        }
+
+        /* Tab 切换 */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 24px;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .tab {
+            flex: 1;
+            padding: 16px 24px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .tab:hover { color: #2d6aa0; background: #f8fafc; }
+        .tab.active { color: #2d6aa0; border-bottom-color: #2d6aa0; font-weight: 700; }
+
+        /* 面板区 */
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .panel.hidden { display: none; }
+
+        /* 表单组件 */
+        .form-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .form-row input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+        .form-row input:focus { border-color: #2d6aa0; }
+
+        .btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background: #2d6aa0;
+            color: white;
+        }
+        .btn-primary:hover { background: #1a3a5c; }
+        .btn-primary:disabled { background: #b0c4d8; cursor: not-allowed; }
+        .btn-outline {
+            background: white;
+            color: #2d6aa0;
+            border: 1.5px solid #2d6aa0;
+        }
+        .btn-outline:hover { background: #eef4fa; }
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        .btn-success:hover { background: #219a52; }
+
+        /* 文件上传区 */
+        .upload-zone {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            color: #999;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+        .upload-zone:hover { border-color: #2d6aa0; color: #2d6aa0; }
+        .upload-zone.dragover { border-color: #2d6aa0; background: #f0f6fb; }
+        .upload-zone .icon { font-size: 42px; margin-bottom: 8px; }
+        .upload-zone .hint { font-size: 13px; margin-top: 4px; color: #bbb; }
+        .file-name { color: #2d6aa0; font-weight: 600; margin-top: 8px; }
+
+        /* 粘贴区 */
+        textarea {
+            width: 100%;
+            height: 180px;
+            padding: 14px;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: vertical;
+            outline: none;
+            font-family: inherit;
+            line-height: 1.6;
+        }
+        textarea:focus { border-color: #2d6aa0; }
+        textarea::placeholder { color: #bbb; }
+
+        /* 结果区 */
+        .results-area {
+            margin-top: 24px;
+            display: none;
+        }
+        .results-area.show { display: block; }
+
+        .result-card {
+            background: #f8fafc;
+            border: 1px solid #e8ecf0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .result-card .material-name {
+            font-size: 17px;
+            font-weight: 700;
+            color: #1a3a5c;
+            margin-bottom: 10px;
+        }
+        .result-card .material-name .badge {
+            display: inline-block;
+            background: #e8f0f8;
+            color: #2d6aa0;
+            font-size: 12px;
+            padding: 2px 10px;
+            border-radius: 12px;
+            margin-left: 8px;
+            font-weight: 400;
+        }
+        .price-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+        .price-value {
+            font-size: 24px;
+            font-weight: 800;
+            color: #e74c3c;
+        }
+        .price-unit { color: #888; }
+        .price-source {
+            font-size: 12px;
+            background: #eee;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #666;
+        }
+        .price-note { font-size: 12px; color: #999; }
+        .no-result { color: #999; padding: 8px 0; font-size: 14px; }
+
+        /* 汇总表 */
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+        .summary-table th {
+            background: #1a3a5c;
+            color: white;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 500;
+        }
+        .summary-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .summary-table tr:hover td { background: #f8fafc; }
+
+        /* 加载动画 */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+            color: #888;
+        }
+        .loading.show { display: block; }
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid #e0e0e0;
+            border-top-color: #2d6aa0;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: #f0f6fb;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .stat strong { color: #2d6aa0; }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .form-row { flex-direction: column; }
+            .header { padding: 12px 16px; }
+            .header .logo { font-size: 18px; }
+            .container { padding: 12px; }
+            .panel { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 顶栏 -->
+<div class="header">
+    <div class="logo">🏗️ <span>造价通</span> · 材料价格查询</div>
+    <div class="info" id="currentTime"></div>
+</div>
+
+<!-- 主体 -->
+<div class="container">
+
+    <!-- Tab 切换 -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('single')">🔍 单个查询</div>
+        <div class="tab" onclick="switchTab('batch')">📁 批量导入</div>
+        <div class="tab" onclick="switchTab('paste')">📋 粘贴清单</div>
+    </div>
+
+    <!-- 单个查询 -->
+    <div class="panel" id="panel-single">
+        <div class="form-row">
+            <input id="keyword" type="text" placeholder="输入材料名称，如：C30混凝土、HRB400螺纹钢...">
+            <input id="region" type="text" placeholder="地区（可选），如：广州">
+            <button class="btn btn-primary" onclick="singleSearch()">查 询</button>
+        </div>
+        <div id="singleResults" class="results-area"></div>
+        <div id="singleLoading" class="loading">
+            <div class="spinner"></div>
+            <span>正在搜索价格...</span>
+        </div>
+    </div>
+
+    <!-- 批量导入 -->
+    <div class="panel hidden" id="panel-batch">
+        <div id="dropZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
+            <div class="icon">📂</div>
+            <div>点击上传 或 拖拽文件到此处</div>
+            <div class="hint">支持 .xlsx / .xls / .csv 格式，第一行为表头</div>
+            <div class="file-name" id="fileName" style="display:none"></div>
+        </div>
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFile(event)">
+        <div class="form-row" style="margin-top:12px">
+            <input id="batchRegion" type="text" placeholder="查询地区（可选），如：广州">
+            <button class="btn btn-primary" onclick="batchSearch()" id="batchBtn" disabled>批量查询</button>
+        </div>
+        <div id="batchResults" class="results-area"></div>
+        <div id="batchLoading" class="loading">
+            <div class="spinner"></div>
+            <span>正在批量查询，请稍候...</span>
+        </div>
+    </div>
+
+    <!-- 粘贴清单 -->
+    <div class="panel hidden" id="panel-paste">
+        <textarea id="pasteArea" placeholder="每行一个材料，格式：材料名称,规格型号,单位&#10;例如：&#10;C30混凝土,1520-180mm石子,元/m³&#10;HRB400螺纹钢,φ16-25,元/吨&#10;P.O42.5水泥,袋装,元/吨"></textarea>
+        <div class="form-row" style="margin-top:12px">
+            <input id="pasteRegion" type="text" placeholder="查询地区（可选），如：广州">
+            <button class="btn btn-primary" onclick="pasteSearch()">查询清单</button>
+        </div>
+        <div id="pasteResults" class="results-area"></div>
+        <div id="pasteLoading" class="loading">
+            <div class="spinner"></div>
+            <span>正在查询清单...</span>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // 时间
+    function updateTime() {
+        const now = new Date();
+        document.getElementById('currentTime').textContent =
+            now.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric' }) +
+            ' ' + now.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+    }
+    updateTime();
+    setInterval(updateTime, 30000);
+
+    // Tab 切换
+    function switchTab(tab) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+        document.querySelector(`.tab:nth-child(${['single','batch','paste'].indexOf(tab)+1})`).classList.add('active');
+        document.getElementById('panel-' + tab).classList.remove('hidden');
+    }
+
+    // ========== 单个查询 ==========
+    async function singleSearch() {
+        const keyword = document.getElementById('keyword').value.trim();
+        const region = document.getElementById('region').value.trim();
+        if (!keyword) { alert('请输入材料名称'); return; }
+
+        const area = document.getElementById('singleResults');
+        const load = document.getElementById('singleLoading');
+        area.classList.remove('show');
+        load.classList.add('show');
+
+        try {
+            const res = await fetch('/api/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keyword, region })
+            });
+            const data = await res.json();
+            area.innerHTML = renderSingleResult(data);
+            area.classList.add('show');
+        } catch (e) {
+            area.innerHTML = '<div style="color:#e74c3c">查询失败: ' + e.message + '</div>';
+            area.classList.add('show');
+        } finally {
+            load.classList.remove('show');
+        }
+    }
+
+    function renderSingleResult(data) {
+        let html = `<div class="stats">
+            <div class="stat">关键词：<strong>${data.keyword || ''}</strong></div>
+            <div class="stat">地区：<strong>${data.region || '不限'}</strong></div>
+            <div class="stat">找到：<strong>${(data.results||[]).length}</strong> 条</div>
+        </div>`;
+
+        if (!data.results || data.results.length === 0) {
+            html += '<div class="no-result">⚠️ 未查到价格信息，建议登录<a href="https://www.zjtcn.com" target="_blank">造价通官网</a>查看详情，或缩小搜索范围。</div>';
+        } else {
+            html += '<div class="result-card"><div class="material-name">' + data.keyword + '</div>';
+            data.results.forEach(r => {
+                html += `<div class="price-row">
+                    <span class="price-value">${r.price}</span>
+                    <span class="price-unit">${r.unit}</span>
+                    <span class="price-source">${r.source}</span>
+                    <span class="price-note">${r.region || ''} · ${r.note || ''}</span>
+                </div>`;
+            });
+            html += '</div>';
+        }
+        return html;
+    }
+
+    // ========== 批量导入 ==========
+    let currentFile = null;
+
+    function handleFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        currentFile = file;
+        document.getElementById('fileName').textContent = '已选择: ' + file.name;
+        document.getElementById('fileName').style.display = 'block';
+        document.getElementById('batchBtn').disabled = false;
+    }
+
+    // 拖拽上传
+    const dropZone = document.getElementById('dropZone');
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            document.getElementById('fileInput').files = dt.files;
+            handleFile({ target: { files: dt.files } });
+        }
+    });
+
+    async function batchSearch() {
+        if (!currentFile) return;
+        const region = document.getElementById('batchRegion').value.trim();
+        const area = document.getElementById('batchResults');
+        const load = document.getElementById('batchLoading');
+        area.classList.remove('show');
+        load.classList.add('show');
+
+        const formData = new FormData();
+        formData.append('file', currentFile);
+        formData.append('region', region);
+
+        try {
+            const res = await fetch('/api/batch', { method: 'POST', body: formData });
+            const data = await res.json();
+            currentSearchData = data.items || [];
+            area.innerHTML = renderBatchResult(data);
+            area.classList.add('show');
+        } catch (e) {
+            area.innerHTML = '<div style="color:#e74c3c">查询失败: ' + e.message + '</div>';
+            area.classList.add('show');
+        } finally {
+            load.classList.remove('show');
+        }
+    }
+
+    let currentSearchData = [];
+
+    function renderBatchResult(data) {
+        let html = `<div class="stats">
+            <div class="stat">共查询：<strong>${data.total || 0}</strong> 种材料</div>
+        </div>`;
+
+        if (data.items && data.items.length > 0) {
+            html += '<table class="summary-table"><thead><tr><th>序号</th><th>材料名称</th><th>规格</th><th>单位</th><th>参考价格</th><th>来源</th><th>备注</th></tr></thead><tbody>';
+            data.items.forEach(item => {
+                if (item.results && item.results.length > 0) {
+                    item.results.forEach(r => {
+                        html += `<tr>
+                            <td>${item.seq}</td>
+                            <td><strong>${item.name}</strong></td>
+                            <td>${item.spec || '-'}</td>
+                            <td>${item.unit || '-'}</td>
+                            <td style="color:#e74c3c;font-weight:700">${r.price} ${r.unit}</td>
+                            <td>${r.source}</td>
+                            <td>${r.region || ''} ${r.note || ''}</td>
+                        </tr>`;
+                    });
+                } else {
+                    html += `<tr>
+                        <td>${item.seq}</td>
+                        <td><strong>${item.name}</strong></td>
+                        <td>${item.spec || '-'}</td>
+                        <td>${item.unit || '-'}</td>
+                        <td style="color:#999">未查到</td><td>-</td><td>-</td>
+                    </tr>`;
+                }
+            });
+            html += '</tbody></table>';
+            html += `<div style="margin-top:16px"><button class="btn btn-success" onclick="exportExcel()">📥 导出 Excel</button></div>`;
+        } else {
+            html += '<div class="no-result">⚠️ 文件中没有有效数据</div>';
+        }
+        return html;
+    }
+
+    async function exportExcel() {
+        const region = document.getElementById('batchRegion').value.trim();
+        const items = currentSearchData.map(it => ({ ...it, region }));
+        const res = await fetch('/api/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items })
+        });
+        if (!res.ok) { alert('导出失败'); return; }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '材料价格查询结果.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // ========== 粘贴清单 ==========
+    async function pasteSearch() {
+        const text = document.getElementById('pasteArea').value.trim();
+        const region = document.getElementById('pasteRegion').value.trim();
+        if (!text) { alert('请粘贴材料清单'); return; }
+
+        const area = document.getElementById('pasteResults');
+        const load = document.getElementById('pasteLoading');
+        area.classList.remove('show');
+        load.classList.add('show');
+
+        const items = [];
+        text.split('\n').forEach(line => {
+            const parts = line.split(/[,，\s]+/);
+            if (parts.length > 0 && parts[0].trim()) {
+                items.push({
+                    seq: items.length + 1,
+                    name: parts[0].trim(),
+                    spec: parts[1]?.trim() || '',
+                    unit: parts[2]?.trim() || '',
+                    keyword: parts.slice(0, 2).join(' ').trim(),
+                    region: region,
+                    results: []
+                });
+            }
+        });
+
+        // 逐个查询
+        for (let item of items) {
+            try {
+                const res = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyword: item.keyword, region })
+                });
+                const data = await res.json();
+                item.results = data.results || [];
+            } catch (e) {
+                item.results = [];
+            }
+        }
+
+        currentSearchData = items;
+        area.innerHTML = renderBatchResult({ total: items.length, items });
+        area.classList.add('show');
+        load.classList.remove('show');
+    }
+
+    // 回车快捷键
+    document.getElementById('keyword').addEventListener('keydown', e => {
+        if (e.key === 'Enter') singleSearch();
+    });
+</script>
+
+</body>
+</html>
