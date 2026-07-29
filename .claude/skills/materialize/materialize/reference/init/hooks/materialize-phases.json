@@ -1,0 +1,17 @@
+{
+  "_comment": "Shared phase→reference-file map for the mode-injector and mode-enforcer hooks. The default file for any phase is <phase>/<phase>.md (relative to the skill reference root); list here ONLY the exceptions (a phase whose primary file lives elsewhere) and supplementary files (extra files loaded after the primary). Adding a plain mode needs no edit here.",
+  "exceptions": {
+    "grill": "grill/grill.md",
+    "accept": "verify/verify.md"
+  },
+  "supplementary": {
+    "design": ["design/design-it-twice.md", "design/deepening.md"],
+    "implement": ["tdd/tdd.md"],
+    "prototype": ["prototype/ui.md", "prototype/logic.md"],
+    "tdd": ["tdd/tests.md", "tdd/deep-modules.md", "tdd/mocking.md", "tdd/interface-design.md", "tdd/refactoring.md"],
+    "grill": ["grill/DECISIONS-FORMAT.md", "grill/DESIGN-FORMAT.md"],
+    "architecture": ["architecture/HTML-REPORT.md"],
+    "test-debt": ["architecture/HTML-REPORT.md"],
+    "triage": ["triage/AGENT-BRIEF.md", "triage/OUT-OF-SCOPE.md"]
+  }
+}

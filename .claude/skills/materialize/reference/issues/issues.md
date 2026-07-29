@@ -1,0 +1,107 @@
+# Issues
+
+Issues **slice the already-settled design** (`design` ran once up front): each issue is a vertical slice of that design, not a place to re-decide it. If a slice hits an undecided question, drop back to grilling — don't invent the design here.
+
+The issue tracker and triage label vocabulary should have been provided to you — run `init` if not.
+
+## Process
+
+### 1. Gather context
+
+Work from the on-disk record — the PRD, `.workflow/<id>/tech-design.md`, and decision ledger; conversation context is a cache of those files, never the source. If the user passes an issue reference (issue number, URL, or path) as an argument, fetch it from the issue tracker and read its full body and comments.
+
+### 2. Explore the codebase (optional)
+
+If you have not already explored the codebase, do so to understand the current state of the code. Load the domain glossary and ADR conventions per [`../init/domain.md`](../init/domain.md) — accepted ADRs bind; proposed ones are planning context. If the plan has a decision ledger (`docs/decisions/`), read it — its records are the resolved answers the issue set must cover end-to-end without weakening their constraints.
+
+### 3. Draft vertical slices
+
+Break the plan into **tracer bullet** issues. Each issue is a thin vertical slice that cuts through ALL integration layers end-to-end, NOT a horizontal slice of one layer.
+
+Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an architectural decision or a design review. AFK slices can be implemented and merged without human interaction. Prefer AFK over HITL where possible.
+
+<vertical-slice-rules>
+- Each slice delivers a narrow but COMPLETE path through every layer (schema, API, UI, tests)
+- A completed slice is demoable or verifiable on its own
+- Prefer many thin slices over few thick ones
+- A slice MAY be a deliberate prep/refactor slice that isn't end-to-end — but then it must name the user-facing half it defers AND the later slice that closes it. A deferred half no slice closes is the gap: a connective path (e.g. a read path split across a prep slice and a later UI slice) owned by no slice
+</vertical-slice-rules>
+
+One shape breaks the tracer-bullet rule: a **wide refactor** — a mechanical change whose blast radius fans across the codebase (rename a shared column, retype a widely-used symbol), so a single edit breaks every call site at once and no vertical slice lands green. Catch it while exploring and sequence it as **expand → migrate → contract** instead of forcing a vertical: *expand* — add the new form beside the old so nothing breaks; *migrate* — move call sites in batches sized by blast radius, one issue per batch, CI green throughout because the old form still exists; *contract* — delete the old form once no caller remains, blocked by every migrate batch. When a batch can't stay green alone, keep the sequence but let the batches share an integration branch that all block a final integrate-and-verify slice — green is promised only there.
+
+A second shape strains it: **two sides of one interface, cut apart to be built in parallel** — a frontend and a backend, or two services. Prose in the design describes that boundary but holds neither side to it, so both pass their own tests and disagree at integration over a field name, a nullable, an enum value, an error payload, or an ID that's a string on one side and a JSON number on the other. Cutting across a boundary this way, make the boundary its own first slice: pin it in whatever machine-readable form the repo already uses — OpenAPI, JSON Schema, a GraphQL schema, protobuf, shared types — and block both sides on it, so each derives its types, mocks, and fixtures from the one definition instead of from a reading of it. Changing the contract later is then its own slice, ahead of the slices that consume it. If the repo has no such form and none is worth adding, don't split the boundary at all — keep both sides in one vertical slice and lose the parallelism.
+
+### 4. Quiz the user
+
+Present the proposed breakdown as a numbered list. For each slice, show:
+
+- **Title**: a user-facing slice's title is its outcome (`<user action> → <visible result>`), not a layer — a layer-only title (`"Config UI"`, `"Backend resolver"`) hides whether the vertical is covered
+- **Type**: HITL / AFK
+- **Blocked by**: which other slices (if any) must complete first
+- **`[P]`**: mark a slice `[P]` when it has no unmet dependencies (nothing blocking it now) — `work` dispatches all `[P]` slices as one concurrent wave, re-marking each slice `[P]` as its blockers' PRs open
+- **User stories covered**: which user stories this addresses (if the source material has them)
+- **Decisions covered**: which decision-ledger records (`D1`, `D2`…) this slice implements, if a ledger exists
+
+Before presenting, trace one concrete value end-to-end through every layer against the code for the first user-facing slice (after any prep slices) — a layer no slice owns is an unowned connective step; carve a slice for it. Working from a pre-authored plan/PRD, re-derive the slices and run this trace rather than rubber-stamping the existing cut.
+
+A blocker is not only a slice that produces a type or data another consumes. Scan each slice's acceptance criteria for a *mechanism* another parallel slice builds — a CLI flag, an endpoint, a shared utility — and record that edge too, even when no domain type flows between them. Miss it and both slices reimplement the same mechanism and collide at merge.
+
+Ask the user:
+
+- Does the granularity feel right? (too coarse / too fine)
+- Are the dependency relationships correct?
+- Should any slices be merged or split further?
+- Are the correct slices marked as HITL and AFK?
+- Is every user-facing slice end-to-end, with no connective path left unowned?
+- Does the union of slices cover every ledger record? Flag any record no slice owns.
+
+Iterate until the user approves the breakdown. Delegated, write the proposed breakdown to `.workflow/<id>/NN-issues-<slug>.md` and return `blocked: needs-decision` — the conductor runs this approval against that file, then re-dispatches for step 5.
+
+### 5. Publish the issues to the issue tracker
+
+For each approved slice, publish a new issue to the issue tracker using the body template below.
+
+**Calibrate per-issue detail to the executor.** Planning is cheap, each execution is not, so how much context a body carries is a cost lever. `init` records the executor's working depth and model in `orchestration.md`: when a cheaper or weaker executor will run these issues, spend more planning tokens on self-contained acceptance criteria and decision-rich context per body so it needn't rediscover the design; a capable executor can stay leaner and fill gaps itself. Richer means more complete criteria and decisions — never stale file paths or code snippets, which still don't belong here.
+
+AFK-ready issues MUST carry the correct triage label (`ready-for-agent` by default — see the tracker binding's `triage-labels.md`). Labelling is its own required step, not a flag on create: if the tracker's create call can't set labels (some connectors can't), make a follow-up label call, then read the issue back to confirm the label landed. Never report a label as applied that no tool call set — an issue missing its label isn't published.
+
+Attach whatever evidence the slice already produced — prototype renders, design screenshots, diagrams, failing-test or log output — when the tracker supports it, so the implementing agent inherits context prose can't carry.
+
+Publish issues in dependency order (blockers first) so you can reference real issue identifiers in the "Blocked by" field.
+
+If the tracker or repo is PUBLIC and a slice describes a security vulnerability or where a credential lives, warn the user and get explicit confirmation before publishing it. Never put a secret value in an issue body — reference `file:line` and the credential type only. After publishing, record each created issue's URL/ID back in the source marker.
+
+<issue-template>
+## Parent
+
+A reference to the parent issue on the issue tracker (if the source was an existing issue, otherwise omit this section).
+
+## What to build
+
+Open with the user story this slice serves — `As an <actor>, I want <capability>, so that <benefit>`, drawn from the stories you marked covered in step 4 — then a concise description of the end-to-end behavior, not layer-by-layer implementation. The story is the who/why the EARS criteria below can't carry; an executor reading only the issue body otherwise meets the letter of the criteria but misses the value, or reopens the PRD to recover it. Omit the story only when the source material has none.
+
+Avoid specific file paths or code snippets — they go stale fast. The one exception — inlining a decision-encoding prototype snippet — follows the rule in [`prd`](../prd/prd.md).
+
+## Acceptance criteria
+
+Carry the EARS predicates from the source PRD/spec that this slice owns, written as `WHEN <trigger> THE SYSTEM SHALL <response>` — see [EARS](../verify/verify.md) — so they feed `verify` downstream. Each must be **false at the base commit the slice starts from** — it fails there, or it grades nothing (green at HEAD reads as coverage but catches nothing, worse than absent). A vertical slice that delivers behaviour which didn't work before is red at base by construction; the exception is a slice that **rebuilds an existing seam**, whose already-working behaviour is green at base — that's a *preserved invariant* (below), not an acceptance criterion.
+
+- [ ] WHEN … THE SYSTEM SHALL …
+- [ ] WHEN … THE SYSTEM SHALL …
+- [ ] WHEN … THE SYSTEM SHALL …
+
+## Preserved invariants
+
+Only when the slice reworks a seam that already carries working behaviour: list the predicates that are green at the base commit and must **stay** green — regression guards, not work this slice delivers. A green-at-base predicate the slice doesn't touch is noise (cut it). Listing a real guard here keeps `verify` from tallying it as delivered, and keeps you from cutting it and dropping the regression net. Omit the section when the slice builds only new behaviour.
+
+- [ ] WHEN … THE SYSTEM SHALL … (holds at base; must stay green)
+
+## Blocked by
+
+- A reference to the blocking Issue (if any)
+
+Or "None - can start immediately" if no blockers.
+
+</issue-template>
+
+If the source was an existing tracker issue, it's now an epic, not a slice to implement — don't close or re-scope it, but don't leave it `ready-for-agent` either. Move it to `paused`, blocked by the child issues, with a one-line body note ("Decomposed into #N, #M — implement those, not this"). Left agent-ready, a run grabs the parent and builds the whole epic in one pass, orphaning the children; `paused` keeps it out of the AFK queue and surfaces it for closure once every child closes.
