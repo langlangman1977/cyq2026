@@ -3,3 +3,10 @@ video_frames/
 *.mp4
 *.mp3
 narration.mp3
+__pycache__/
+*.pyc
+static/
+zaojiatong.db
+中联永信/
+测试清单_*
+审核报告_*
