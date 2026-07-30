@@ -406,7 +406,141 @@ def history():
     })
 
 
-# ==================== 核心：搜索 + 存库 ====================
+# ==================== API：清单审核 ====================
+
+import tempfile, shutil
+
+@app.route("/api/audit", methods=["POST"])
+@login_required
+def api_audit():
+    """接收上传的清单文件，运行审核引擎，返回审核结果"""
+    if "file" not in request.files:
+        return jsonify({"error": "请上传清单文件"}), 400
+
+    file = request.files["file"]
+    building_type = request.form.get("building_type", "工业建筑").strip()
+    area_str = request.form.get("area", "0").strip()
+    project_name = request.form.get("project_name", "").strip()
+
+    area = 0.0
+    try:
+        area = float(area_str)
+    except ValueError:
+        pass
+
+    # 保存上传文件到临时目录
+    tmp_dir = tempfile.mkdtemp()
+    filename = file.filename or "uploaded_list.xlsx"
+    safe_name = "".join(c for c in filename if c.isalnum() or c in "._-")
+    filepath = os.path.join(tmp_dir, safe_name)
+    file.save(filepath)
+
+    try:
+        from zaojia_auditor import Auditor
+        auditor = Auditor(filepath)
+        if not auditor.parse():
+            return jsonify({"error": "无法解析清单文件，请检查格式"}), 400
+
+        auditor.audit_prices()
+        auditor.analyze_indicators(building_type, area)
+
+        # 保存审核报告
+        report_name = f"审核报告_{safe_name}"
+        report_path = os.path.join(tmp_dir, report_name)
+        if not report_path.endswith(".xlsx"):
+            report_path += ".xlsx"
+        auditor.save_report(report_path)
+
+        # 如果指定了项目名，也存入记忆库
+        if project_name:
+            import list_memory
+            list_memory.remember_list(filepath, project_name, building_type, area)
+
+        # 构建返回值
+        price_findings = [f for f in auditor.findings if f.get("type") == "单价审核"]
+        high_count = sum(1 for f in price_findings if f.get("level") == "high")
+        med_count = sum(1 for f in price_findings if f.get("level") == "medium")
+
+        # 复制报告到 static 目录供下载
+        static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+        os.makedirs(static_dir, exist_ok=True)
+        static_report = os.path.join(static_dir, report_name)
+        shutil.copy2(report_path, static_report)
+
+        return jsonify({
+            "item_count": len(price_findings),
+            "total_price": auditor.total_price,
+            "high_count": high_count,
+            "med_count": med_count,
+            "indicators": {k: {"value": v.get("value", v) if isinstance(v, dict) else v,
+                               "range": v.get("range", "") if isinstance(v, dict) else "",
+                               "ok": v.get("ok", True)} for k, v in auditor.indicators.items()},
+            "findings": [{
+                "name": f.get("name", ""),
+                "unit": f.get("unit", ""),
+                "qty": f.get("qty", 0),
+                "price": f.get("price", 0),
+                "ref_range": f.get("ref_range", ""),
+                "deviation": f.get("deviation", 0),
+                "level": f.get("level", "normal"),
+            } for f in price_findings if f.get("level") != "normal"],
+            "report_file": report_name,
+            "report_url": f"/static/{report_name}",
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"审核失败: {str(e)}"}), 500
+    finally:
+        # 清理临时目录（保留报告）
+        try:
+            for f in os.listdir(tmp_dir):
+                fp = os.path.join(tmp_dir, f)
+                if os.path.isfile(fp) and not f.startswith("审核报告"):
+                    os.remove(fp)
+        except:
+            pass
+
+
+@app.route("/api/download_report", methods=["GET"])
+@login_required
+def api_download_report():
+    """下载审核报告"""
+    filename = request.args.get("file", "").strip()
+    static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+    path = os.path.join(static_dir, filename)
+    if not os.path.exists(path):
+        return jsonify({"error": "报告文件不存在"}), 404
+    return send_file(path, as_attachment=True, download_name=filename)
+
+
+@app.route("/api/memory_stats", methods=["GET"])
+@login_required
+def api_memory_stats():
+    """获取记忆库统计"""
+    import list_memory
+    stats = list_memory.get_memory_stats()
+    return jsonify(stats)
+
+
+@app.route("/api/memory_projects", methods=["GET"])
+@login_required
+def api_memory_projects():
+    """获取已审项目列表"""
+    import list_memory
+    projects = list_memory.get_all_projects()
+    return jsonify({"projects": projects})
+
+
+@app.route("/api/memory_recall", methods=["GET"])
+@login_required
+def api_memory_recall():
+    """召回相似子目价格记忆"""
+    name = request.args.get("name", "").strip()
+    if not name:
+        return jsonify({"items": []})
+    import list_memory
+    items = list_memory.recall_similar(name)
+    return jsonify({"items": items})
 
 def save_query(name, spec, unit, region, results, project_id=None):
     """保存查询记录到数据库"""
@@ -518,7 +652,7 @@ def parse_excel(file):
 
 if __name__ == "__main__":
     init_db()
-    print("✅ 造价通材料价格查询系统已启动")
-    print("   访问地址: http://127.0.0.1:5000")
-    print("   默认管理员: admin / admin123")
+    print("Zaojiatong system started")
+    print("    URL: http://127.0.0.1:5000")
+    print("    Default admin: admin / admin123")
     app.run(host="0.0.0.0", port=5000, debug=True)
