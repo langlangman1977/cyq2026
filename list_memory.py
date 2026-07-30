@@ -205,7 +205,7 @@ def remember_list(filepath: str, project_name: str = "", building_type: str = "�
     conn.commit()
     conn.close()
 
-    print(f"✅ 已记住清单: {project_name}")
+    print(f"OK:  已记住清单: {project_name}")
     print(f"   项目ID: {project_id}")
     print(f"   子目数: {item_count} 条")
     print(f"   总造价: {total_price/10000:.2f} 万元")
@@ -271,7 +271,7 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         stats = get_memory_stats()
-        print(f"📚 清单记忆库统计")
+        print(f"MEM:  清单记忆库统计")
         print(f"   已审项目: {stats['projects']} 个")
         print(f"   已记子目类型: {stats['unique_items']} 种")
         print(f"\n用法:")
@@ -287,7 +287,7 @@ if __name__ == "__main__":
     elif sys.argv[1] == "recall" and len(sys.argv) > 2:
         results = recall_similar(sys.argv[2])
         for r in results:
-            print(f"📋 {r['name']}")
+            print(f"ITEM:  {r['name']}")
             print(f"   平均 {r['avg']}元  范围 {r['min']}~{r['max']}  (来自{r['samples']}个项目)")
     elif sys.argv[1] == "projects":
         for p in get_all_projects():

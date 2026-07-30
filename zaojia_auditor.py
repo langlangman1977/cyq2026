@@ -456,7 +456,7 @@ class Auditor:
         if self.indicators:
             lines.append("\n### 📐 工程量指标")
             for name, info in self.indicators.items():
-                ok = "✅" if info.get("ok", True) else "⚠️"
+                ok = "OK: " if info.get("ok", True) else "WARN: "
                 lines.append(f"- {ok} {name}：{info['value']}（参考：{info.get('range', '')})")
         if high:
             lines.append("\n### 🔴 严重偏差项目")
