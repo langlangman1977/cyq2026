@@ -110,10 +110,10 @@
         <div class="upload-zone" id="auditDropZone" onclick="document.getElementById('auditFileInput').click()">
             <div class="icon">📂</div>
             <div id="auditDropText">点击上传 或 拖拽清单文件到此处</div>
-            <div style="font-size:13px;color:#bbb;margin-top:4px">支持 .xlsx / .xls 格式的工程量清单</div>
+            <div style="font-size:13px;color:#bbb;margin-top:4px">支持 .xlsx / .xls / .pdf / .csv 格式</div>
             <div class="file-name" id="auditFileName" style="display:none"></div>
         </div>
-        <input type="file" id="auditFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleAuditFile(event)">
+        <input type="file" id="auditFileInput" accept=".xlsx,.xls,.pdf,.csv" style="display:none" onchange="handleAuditFile(event)">
 
         <!-- 参数配置 -->
         <div class="form-row" style="margin-top:16px">
